@@ -83,7 +83,7 @@
 
 
 <script setup lang="ts">
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, onActivated, onDeactivated } from 'vue';
 import { ElMessage } from 'element-plus';
 import request from '/@/utils/request';
 import { useUserInfo } from '/@/stores/userInfo';
@@ -94,6 +94,7 @@ import { formatDate } from '/@/utils/formatTime';
 
 const uploadFile = ref<UploadInstance>();
 const VIDEO_PREDICT_CACHE_KEY = 'video_predict_page_state_v1';
+const hasDeactivatedOnce = ref(false);
 const stores = useUserInfo();
 const conf = ref(20);
 const weight = ref('');
@@ -223,7 +224,7 @@ const restoreState = () => {
 	}
 };
 
-const resetPageState = () => {
+const resetPageState = (showMessage = true) => {
 	state.video_path = '';
 	state.isShow = false;
 	state.percentage = 0;
@@ -233,7 +234,9 @@ const resetPageState = () => {
 	state.latestResult = {};
 	state.form.inputVideo = null;
 	localStorage.removeItem(VIDEO_PREDICT_CACHE_KEY);
-	ElMessage.success('页面状态已重置');
+	if (showMessage) {
+		ElMessage.success('页面状态已重置');
+	}
 };
 
 const fetchLatestResult = (onEmpty?: () => void) => {
@@ -323,6 +326,17 @@ onMounted(() => {
 	restoreState();
 	if (state.status === 'processing' && state.lastQueryParams && !state.video_path) {
 		state.video_path = `http://127.0.0.1:5000/predictVideo?${state.lastQueryParams}`;
+	}
+});
+
+onDeactivated(() => {
+	hasDeactivatedOnce.value = true;
+});
+
+onActivated(() => {
+	// 按需求：检测成功后离开页面，再返回应恢复为待上传初始态
+	if (hasDeactivatedOnce.value && state.status === 'success') {
+		resetPageState(false);
 	}
 });
 </script>
